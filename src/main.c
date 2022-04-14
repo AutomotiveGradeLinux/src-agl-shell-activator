@@ -28,11 +28,15 @@
 #include <string.h>
 #include <stddef.h>
 #include <assert.h>
+#include <signal.h>
+
 
 #include <wayland-client.h>
 #include <wayland-util.h>
 #include "agl-shell-desktop-client-protocol.h"
 
+static int running = 1;
+const char *app_id_to_activate = NULL;
 
 struct display;
 
@@ -103,6 +107,27 @@ destroy_output(struct window_output *w_output)
 	free(w_output);
 }
 
+static void app(void *data, struct agl_shell_desktop *agl_shell_desktop,
+		const char *appid)
+{
+		/* UNUSED */
+}
+
+static void state_app(void *data, struct agl_shell_desktop *agl_shell_desktop,
+		      const char *app_id, const char *app_data, uint32_t state,
+		      uint32_t role)
+{
+	if (strcmp(app_id, app_id_to_activate) == 0 &&
+	    state == AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED) {
+		raise(SIGINT);
+	}
+}
+
+static const struct agl_shell_desktop_listener desktop_shell_listener = {
+	app,
+	state_app,
+};
+
 static void
 registry_handle_global(void *data, struct wl_registry *registry,
 		       uint32_t id, const char *interface, uint32_t version)
@@ -112,6 +137,8 @@ registry_handle_global(void *data, struct wl_registry *registry,
 	if (strcmp(interface, "agl_shell_desktop") == 0) {
 		d->agl_shell_desktop =
 			wl_registry_bind(registry, id, &agl_shell_desktop_interface, 1);
+		agl_shell_desktop_add_listener(d->agl_shell_desktop,
+					       &desktop_shell_listener, d);
 	} else if (strcmp(interface, "wl_output") == 0) {
 		display_add_output(d, id);
 	}
@@ -173,27 +200,46 @@ destroy_display(struct display *display)
 	free(display);
 }
 
+
+static void
+handler(int sig, siginfo_t *si, void *unused)
+{
+	running = 0;
+}
+
 int main(int argc, char *argv[])
 {
 	struct display *display;
-	const char *app_id = NULL;
 	struct window_output *w_output;
+	struct sigaction sa;
+	int ret = 0;
 
 	if (argc < 2) {
 		exit(EXIT_FAILURE);
 	}
 
+
+	sa.sa_flags = SA_SIGINFO;
+	sigemptyset(&sa.sa_mask);
+	sa.sa_sigaction = handler;
+	sigaction(SIGINT, &sa, NULL);
+
 	display = create_display();
 
 	/* the app has to be already started, or not already active */
-	app_id = argv[1];
-	if (app_id && strlen(app_id) == 0)
+	app_id_to_activate = argv[1];
+	if (app_id_to_activate && strlen(app_id_to_activate) == 0)
 		exit(EXIT_FAILURE);
 
 	/* pick the first one available */
 	w_output = wl_container_of(display->output_list.prev, w_output, link);
-	agl_shell_desktop_activate_app(display->agl_shell_desktop, app_id,
+	agl_shell_desktop_activate_app(display->agl_shell_desktop, app_id_to_activate,
 					NULL, w_output->output);
+	wl_display_flush(display->display);
+
+	while (running && ret != -1) {
+		ret = wl_display_dispatch(display->display);
+	}
 
 	destroy_display(display);
 	return 0;
