@@ -40,7 +40,7 @@ endforeach
 env_modmap = ''
 
 libwayland_dep = dependency('wayland-client')
-agl_compositor_dep = dependency('agl-compositor-0.0.19-protocols')
+agl_compositor_dep = dependency('agl-compositor-0.0.20-protocols')
 
 dep_scanner = dependency('wayland-scanner', native: true)
 prog_scanner = find_program(dep_scanner.get_pkgconfig_variable('wayland_scanner'))
