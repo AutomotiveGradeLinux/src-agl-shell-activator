@@ -114,13 +114,3 @@ exe_wth_receiver = executable(
     install_rpath: binplugin_dir,
     install: true
 )
-
-cp = find_program('cp')
-script_target = custom_target('install_script',
-    command: [ cp, '@INPUT@', '@OUTPUT@' ],
-    output : 'agl-activator',
-    input : 'script/agl-activator',
-    install : true,
-    install_dir: binplugin_dir,
-)
-
