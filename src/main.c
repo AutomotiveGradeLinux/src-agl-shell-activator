@@ -30,7 +30,6 @@
 #include <assert.h>
 #include <signal.h>
 
-
 #include <wayland-client.h>
 #include <wayland-util.h>
 #include "agl-shell-desktop-client-protocol.h"
@@ -85,7 +84,7 @@ static const struct wl_output_listener output_listener = {
 };
 
 
-	static void
+static void
 display_add_output(struct display *display, uint32_t id)
 {
 	struct window_output *w_output;
@@ -200,7 +199,6 @@ destroy_display(struct display *display)
 	free(display);
 }
 
-
 static void
 handler(int sig, siginfo_t *si, void *unused)
 {
@@ -218,7 +216,6 @@ int main(int argc, char *argv[])
 		exit(EXIT_FAILURE);
 	}
 
-
 	sa.sa_flags = SA_SIGINFO;
 	sigemptyset(&sa.sa_mask);
 	sa.sa_sigaction = handler;
@@ -235,7 +232,6 @@ int main(int argc, char *argv[])
 	w_output = wl_container_of(display->output_list.prev, w_output, link);
 	agl_shell_desktop_activate_app(display->agl_shell_desktop, app_id_to_activate,
 					NULL, w_output->output);
-	wl_display_flush(display->display);
 
 	while (running && ret != -1) {
 		ret = wl_display_dispatch(display->display);
