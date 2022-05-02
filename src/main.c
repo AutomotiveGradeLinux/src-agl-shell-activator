@@ -28,7 +28,6 @@
 #include <string.h>
 #include <stddef.h>
 #include <assert.h>
-#include <signal.h>
 
 #include <wayland-client.h>
 #include <wayland-util.h>
@@ -118,7 +117,7 @@ static void state_app(void *data, struct agl_shell_desktop *agl_shell_desktop,
 {
 	if (strcmp(app_id, app_id_to_activate) == 0 &&
 	    state == AGL_SHELL_DESKTOP_APP_STATE_ACTIVATED) {
-		raise(SIGINT);
+		running = 0;
 	}
 }
 
@@ -199,27 +198,15 @@ destroy_display(struct display *display)
 	free(display);
 }
 
-static void
-handler(int sig, siginfo_t *si, void *unused)
-{
-	running = 0;
-}
-
 int main(int argc, char *argv[])
 {
 	struct display *display;
 	struct window_output *w_output;
-	struct sigaction sa;
 	int ret = 0;
 
 	if (argc < 2) {
 		exit(EXIT_FAILURE);
 	}
-
-	sa.sa_flags = SA_SIGINFO;
-	sigemptyset(&sa.sa_mask);
-	sa.sa_sigaction = handler;
-	sigaction(SIGINT, &sa, NULL);
 
 	display = create_display();
 
