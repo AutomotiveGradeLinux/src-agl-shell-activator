@@ -75,11 +75,23 @@ display_handle_scale(void *data, struct wl_output *wl_output, int32_t factor)
 {
 }
 
+static void
+display_handle_name(void *data, struct wl_output *wl_output, const char *name)
+{
+}
+
+static void
+display_handle_description(void *data, struct wl_output *wl_output, const char *description)
+{
+}
+
 static const struct wl_output_listener output_listener = {
         display_handle_geometry,
         display_handle_mode,
 	display_handle_done,
 	display_handle_scale,
+	display_handle_name,
+	display_handle_description,
 };
 
 
