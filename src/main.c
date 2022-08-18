@@ -1,5 +1,5 @@
 /*
- * Copyright 2021 Collabora, Ltd.
+ * Copyright 2021, 2022 Collabora, Ltd.
  *
  * Permission is hereby granted, free of charge, to any person obtaining
  * a copy of this software and associated documentation files (the
@@ -33,6 +33,13 @@
 #include <wayland-util.h>
 #include "agl-shell-desktop-client-protocol.h"
 
+#ifndef MIN
+#define MIN(a, b) (((a) < (b)) ? (a) : (b))
+#endif
+#ifndef MAX
+#define MAX(a, b) (((a) > (b)) ? (a) : (b))
+#endif
+
 static int running = 1;
 const char *app_id_to_activate = NULL;
 
@@ -40,8 +47,9 @@ struct display;
 
 struct window_output {
 	struct display *display;
-        struct wl_output *output;
-        struct wl_list link;	/** display::output_list */
+	struct wl_output *output;
+	char *name;
+	struct wl_list link;	/** display::output_list */
 };
 
 struct display {
@@ -78,6 +86,10 @@ display_handle_scale(void *data, struct wl_output *wl_output, int32_t factor)
 static void
 display_handle_name(void *data, struct wl_output *wl_output, const char *name)
 {
+	struct window_output *woutput = data;
+	woutput->name = strdup(name);
+
+	fprintf(stderr, "Adding output '%s'\n", name);
 }
 
 static void
@@ -96,23 +108,28 @@ static const struct wl_output_listener output_listener = {
 
 
 static void
-display_add_output(struct display *display, uint32_t id)
+display_add_output(struct display *display, uint32_t id, uint32_t version)
 {
 	struct window_output *w_output;
 
 	w_output = calloc(1, sizeof(*w_output));
 	w_output->display = display;
-	w_output->output =
-		wl_registry_bind(display->registry, id, &wl_output_interface, 2);
+
+	if (version < 4)
+		w_output->output =
+			wl_registry_bind(display->registry, id, &wl_output_interface, MAX(version, 3));
+	else
+		w_output->output =
+			wl_registry_bind(display->registry, id, &wl_output_interface, MIN(version, 4));
 
 	wl_list_insert(&display->output_list, &w_output->link);
-
-	wl_output_add_listener(w_output->output, &output_listener, display);
+	wl_output_add_listener(w_output->output, &output_listener, w_output);
 }
 
 static void
 destroy_output(struct window_output *w_output)
 {
+	free(w_output->name);
 	wl_list_remove(&w_output->link);
 	free(w_output);
 }
@@ -150,7 +167,10 @@ registry_handle_global(void *data, struct wl_registry *registry,
 		agl_shell_desktop_add_listener(d->agl_shell_desktop,
 					       &desktop_shell_listener, d);
 	} else if (strcmp(interface, "wl_output") == 0) {
-		display_add_output(d, id);
+		if (version < 4)
+			fprintf(stderr, "Failed to bind to version 4. "
+					"Current version %d\n", version);
+		display_add_output(d, id, version);
 	}
 }
 
@@ -213,11 +233,16 @@ destroy_display(struct display *display)
 int main(int argc, char *argv[])
 {
 	struct display *display;
-	struct window_output *w_output;
+	struct window_output *w_output = NULL;
+	char *output_name = NULL;
 	int ret = 0;
 
 	if (argc < 2) {
 		exit(EXIT_FAILURE);
+	}
+
+	if (argc == 3) {
+		output_name = argv[2];
 	}
 
 	display = create_display();
@@ -227,8 +252,26 @@ int main(int argc, char *argv[])
 	if (app_id_to_activate && strlen(app_id_to_activate) == 0)
 		exit(EXIT_FAILURE);
 
-	/* pick the first one available */
-	w_output = wl_container_of(display->output_list.prev, w_output, link);
+	if (output_name) {
+		struct window_output *woutput;
+
+		wl_list_for_each(woutput, &display->output_list, link) {
+			if (woutput->name && !strcmp(woutput->name, output_name)) {
+				w_output = woutput;
+				break;
+			}
+		}
+	} else {
+		w_output = wl_container_of(display->output_list.prev, w_output, link);
+	}
+
+	/* maybe that output doesn't exit, still allow a fallback */
+	if (!w_output)
+		w_output = wl_container_of(display->output_list.prev, w_output, link);
+
+	fprintf(stderr, "Activating application '%s' on output '%s'\n",
+			app_id_to_activate, w_output->name ?
+			w_output->name : "first default output");
 	agl_shell_desktop_activate_app(display->agl_shell_desktop, app_id_to_activate,
 					NULL, w_output->output);
 
