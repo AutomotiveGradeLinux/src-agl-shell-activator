@@ -1,41 +1,53 @@
 project('agl-shell-activator',
-  'c',
-  version: '0.0.1',
+  'c', 'cpp',
+  version: '0.0.2',
   default_options: [
     'warning_level=3',
     'c_std=gnu99',
   ],
-  meson_version: '>= 0.50',
+  meson_version: '>= 0.60',
   license: 'MIT/Expat',
 )
 
 pkgconfig = import('pkgconfig')
-cc = meson.get_compiler('c')
+cpp = meson.get_compiler('cpp')
 
-add_project_arguments(
-  cc.get_supported_arguments([
-    '-Wno-unused-parameter',
-    '-Wno-pedantic',
-    '-Wextra',
-    '-Werror'
-  ]),
-  language: 'c'
-)
+grpcpp_reflection_dep = cpp.find_library('grpc++_reflection')
+protoc = find_program('protoc')
+grpc_cpp = find_program('grpc_cpp_plugin')
+
 
 add_project_arguments([
     '-DPACKAGE_STRING="agl-shell-activator @0@"'.format(meson.project_version()),
     '-D_GNU_SOURCE',
     '-D_ALL_SOURCE',
   ],
-  language: 'c'
+  language: 'cpp'
 )
 
-optional_libc_funcs = [ 'memfd_create', 'strchrnul' ]
-foreach func: optional_libc_funcs
-    if cc.has_function(func)
-        add_project_arguments('-DHAVE_@0@=1'.format(func.to_upper()), language: 'c')
-    endif
-endforeach
+protoc_gen = generator(protoc, \
+                       output : ['@BASENAME@.pb.cc', '@BASENAME@.pb.h'],
+                       arguments : ['--proto_path=@CURRENT_SOURCE_DIR@/src',
+                         '--cpp_out=@BUILD_DIR@',
+                         '@INPUT@'])
+
+generated_protoc_sources = protoc_gen.process('src/agl_shell.proto')
+
+grpc_gen = generator(protoc, \
+                     output : ['@BASENAME@.grpc.pb.cc', '@BASENAME@.grpc.pb.h'],
+                     arguments : ['--proto_path=@CURRENT_SOURCE_DIR@/src',
+                       '--grpc_out=@BUILD_DIR@',
+                       '--plugin=protoc-gen-grpc=' + grpc_cpp.path(),
+                       '@INPUT@'])
+generated_grpc_sources = grpc_gen.process('src/agl_shell.proto')
+
+grpc_deps = [
+    dependency('protobuf'),
+    dependency('grpc'),
+    dependency('grpc++'),
+    grpcpp_reflection_dep,
+]
+
 
 env_modmap = ''
 
@@ -98,10 +110,15 @@ common_inc = include_directories('include')
 
 deps_agl_activator = [
     libwayland_dep,
+    grpc_deps,
 ]
 
 srcs_agl_activator = [
-    'src/main.c',
+    'src/main.cpp',
+    'src/AglShellGrpcClient.cpp',
+    'src/AglShellGrpcClient.h',
+    generated_protoc_sources,
+    generated_grpc_sources,
     agl_shell_desktop_client_protocol_h,
     agl_shell_desktop_protocol_c,
 ]

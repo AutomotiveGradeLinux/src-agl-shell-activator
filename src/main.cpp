@@ -28,9 +28,12 @@
 #include <string.h>
 #include <stddef.h>
 #include <assert.h>
+#include <thread>
 
 #include <wayland-client.h>
 #include <wayland-util.h>
+
+#include "AglShellGrpcClient.h"
 #include "agl-shell-desktop-client-protocol.h"
 
 #ifndef MIN
@@ -86,7 +89,7 @@ display_handle_scale(void *data, struct wl_output *wl_output, int32_t factor)
 static void
 display_handle_name(void *data, struct wl_output *wl_output, const char *name)
 {
-	struct window_output *woutput = data;
+	struct window_output *woutput = static_cast<struct window_output *>(data);
 	woutput->name = strdup(name);
 
 	fprintf(stderr, "Adding output '%s'\n", name);
@@ -112,15 +115,15 @@ display_add_output(struct display *display, uint32_t id, uint32_t version)
 {
 	struct window_output *w_output;
 
-	w_output = calloc(1, sizeof(*w_output));
+	w_output = static_cast<struct window_output *>(calloc(1, sizeof(*w_output)));
 	w_output->display = display;
 
 	if (version < 4)
 		w_output->output =
-			wl_registry_bind(display->registry, id, &wl_output_interface, MAX(version, 3));
+			static_cast<struct wl_output *>(wl_registry_bind(display->registry, id, &wl_output_interface, MAX(version, 3)));
 	else
 		w_output->output =
-			wl_registry_bind(display->registry, id, &wl_output_interface, MIN(version, 4));
+			static_cast<struct wl_output *>(wl_registry_bind(display->registry, id, &wl_output_interface, MIN(version, 4)));
 
 	wl_list_insert(&display->output_list, &w_output->link);
 	wl_output_add_listener(w_output->output, &output_listener, w_output);
@@ -159,11 +162,11 @@ static void
 registry_handle_global(void *data, struct wl_registry *registry,
 		       uint32_t id, const char *interface, uint32_t version)
 {
-	struct display *d = data;
+	struct display *d = static_cast<struct display *>(data);
 
 	if (strcmp(interface, "agl_shell_desktop") == 0) {
 		d->agl_shell_desktop =
-			wl_registry_bind(registry, id, &agl_shell_desktop_interface, 1);
+			static_cast<struct agl_shell_desktop *>(wl_registry_bind(registry, id, &agl_shell_desktop_interface, 1));
 		agl_shell_desktop_add_listener(d->agl_shell_desktop,
 					       &desktop_shell_listener, d);
 	} else if (strcmp(interface, "wl_output") == 0) {
@@ -191,7 +194,7 @@ create_display(void)
 {
 	struct display *display;
 
-	display = malloc(sizeof *display);
+	display = static_cast<struct display *>(malloc(sizeof *display));
 	if (display == NULL) {
 		fprintf(stderr, "out of memory\n");
 		exit(1);
@@ -230,12 +233,19 @@ destroy_display(struct display *display)
 	free(display);
 }
 
+static void
+run_in_thread(GrpcClient *client)
+{
+	grpc::Status status = client->Wait();
+}
+
 int main(int argc, char *argv[])
 {
 	struct display *display;
 	struct window_output *w_output = NULL;
 	char *output_name = NULL;
 	int ret = 0;
+	bool use_grpc_activation = false;
 
 	if (argc < 2) {
 		exit(EXIT_FAILURE);
@@ -244,6 +254,10 @@ int main(int argc, char *argv[])
 	if (argc == 3) {
 		output_name = argv[2];
 	}
+
+	if (argc == 4 && strcmp(argv[3], "use-grpc") == 0)
+		use_grpc_activation = true;
+
 
 	display = create_display();
 
@@ -272,11 +286,28 @@ int main(int argc, char *argv[])
 	fprintf(stderr, "Activating application '%s' on output '%s'\n",
 			app_id_to_activate, w_output->name ?
 			w_output->name : "first default output");
-	agl_shell_desktop_activate_app(display->agl_shell_desktop, app_id_to_activate,
-					NULL, w_output->output);
 
-	while (running && ret != -1) {
-		ret = wl_display_dispatch(display->display);
+	if (use_grpc_activation) {
+		fprintf(stderr, "using grpc\n");
+		GrpcClient *client = new GrpcClient();
+
+		// this blocks in wait
+		std::thread thread(run_in_thread, client);
+
+		// this does the actually call to get events
+		client->AppStatusState();
+
+		client->ActivateApp(std::string(app_id_to_activate),
+		                    std::string(w_output->name));
+		thread.join();
+	} else {
+		fprintf(stderr, "using agl_shell_desktop\n");
+		agl_shell_desktop_activate_app(display->agl_shell_desktop, 
+				app_id_to_activate, NULL, w_output->output);
+
+		while (running && ret != -1) {
+			ret = wl_display_dispatch(display->display);
+		}
 	}
 
 	destroy_display(display);

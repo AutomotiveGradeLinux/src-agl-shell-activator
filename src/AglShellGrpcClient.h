@@ -1,0 +1,97 @@
+#pragma once
+
+#include <cstdio>
+
+#include <mutex>
+#include <condition_variable>
+#include <grpc/grpc.h>
+#include <grpcpp/grpcpp.h>
+#include <grpcpp/server.h>
+#include <grpcpp/server_builder.h>
+#include <grpcpp/server_context.h>
+
+#include <grpcpp/ext/proto_server_reflection_plugin.h>
+#include <grpcpp/health_check_service_interface.h>
+
+#include "agl_shell.grpc.pb.h"
+
+class Reader : public grpc::ClientReadReactor<::agl_shell_ipc::AppStateResponse> {
+public:
+	Reader(agl_shell_ipc::AglShellManagerService::Stub *stub)
+		: m_stub(stub)
+	{
+	}
+
+	void AppStatusState()
+	{
+		::agl_shell_ipc::AppStateRequest request;
+		m_stub->async()->AppStatusState(&m_context, &request, this);
+
+		StartRead(&m_app_state);
+		StartCall();
+	}
+
+	void OnReadDone(bool ok) override
+	{
+		if (ok) {
+			std::cout << "AppState got app_id " <<
+				m_app_state.app_id() <<
+				", with state " <<
+				m_app_state.state() << std::endl;
+
+			// blocks in StartRead() if the server doesn't send
+			// antyhing
+			StartRead(&m_app_state);
+		}
+	}
+
+	void SetDone()
+	{
+		fprintf(stderr, "%s()\n", __func__);
+		std::unique_lock<std::mutex> l(m_mutex);
+		m_done = true;
+	}
+
+	void OnDone(const grpc::Status& s) override
+	{
+		fprintf(stderr, "%s()\n", __func__);
+		std::unique_lock<std::mutex> l(m_mutex);
+
+		m_status = s;
+
+		fprintf(stderr, "%s() done\n", __func__);
+		m_cv.notify_one();
+	}
+
+	grpc::Status Await()
+	{
+		std::unique_lock<std::mutex> l(m_mutex);
+
+		m_cv.wait(l, [this] { return m_done; });
+
+		return std::move(m_status);
+	}
+private:
+	grpc::ClientContext m_context;
+	::agl_shell_ipc::AppStateResponse m_app_state;
+	agl_shell_ipc::AglShellManagerService::Stub *m_stub;
+
+	std::mutex m_mutex;
+	std::condition_variable m_cv;
+	grpc::Status m_status;
+	bool m_done = false;
+};
+
+class GrpcClient {
+public:
+	GrpcClient();
+	bool ActivateApp(const std::string& app_id, const std::string& output_name);
+	void GetAppState();
+	void AppStatusState();
+	grpc::Status Wait();
+
+private:
+	Reader *reader;
+	std::unique_ptr<agl_shell_ipc::AglShellManagerService::Stub> m_stub;
+};
+
