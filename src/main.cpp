@@ -30,13 +30,44 @@
 #include <assert.h>
 #include <thread>
 
+#include <unistd.h>
 #include <wayland-client.h>
 #include <wayland-util.h>
 
+#ifndef ARRAY_LENGTH
+#define ARRAY_LENGTH(array) (sizeof(array) / sizeof(array[0]))
+#endif
+
 #include "AglShellGrpcClient.h"
 
-static int running = 1;
-const char *app_id_to_activate = NULL;
+enum action_state {
+	NONE 		= -1,
+	ACTIVATE,
+	DEACTIVATE,
+	SET_FLOAT,
+	SET_SPLIT,
+};
+
+static struct action {
+	enum action_state action;
+	const char *name;
+} actions[] = {
+	{ ACTIVATE, 	 "ACTIVATE" 	},
+	{ DEACTIVATE, 	 "DEACTIVATE" 	},
+};
+
+static int
+get_action(const char *action_name)
+{
+	size_t i;
+
+	for (i = 0; i < ARRAY_LENGTH(actions); i++) {
+		if (action_name && strcasecmp(action_name, actions[i].name) == 0)
+			return actions[i].action;
+	}
+
+	return -1;
+}
 
 static void
 run_in_thread(GrpcClient *client)
@@ -44,77 +75,100 @@ run_in_thread(GrpcClient *client)
 	grpc::Status status = client->Wait();
 }
 
+static void
+help(char **argv)
+{
+	fprintf(stderr, "Usage: %s [-a action] [-p app_id] [-o output_name] [-l]\n",
+			argv[0]);
+	exit(EXIT_FAILURE);
+}
+
+static void
+app_status_callback(::agl_shell_ipc::AppStateResponse app_response)
+{
+	std::cout << " >> AppStateResponse app_id " <<
+		app_response.app_id() << ", with state " <<
+		app_response.state() << std::endl;
+}
+
 int main(int argc, char *argv[])
 {
-	struct display *display;
-	struct window_output *w_output = NULL;
-	char *output_name = NULL;
-	int ret = 0;
-	bool use_grpc_activation = false;
+	char *output = NULL;
+	char *action = NULL;
+	char *app_id = NULL;
+	int opt;
+	bool listen_flag = false;
+	std::thread th;
 
-	if (argc < 2) {
-		exit(EXIT_FAILURE);
-	}
-
-	if (argc == 3) {
-		output_name = argv[2];
-	}
-
-	if (argc == 4 && strcmp(argv[3], "use-grpc") == 0)
-		use_grpc_activation = true;
-
-
-	display = create_display();
-
-	/* the app has to be already started, or not already active */
-	app_id_to_activate = argv[1];
-	if (app_id_to_activate && strlen(app_id_to_activate) == 0)
-		exit(EXIT_FAILURE);
-
-	if (output_name) {
-		struct window_output *woutput;
-
-		wl_list_for_each(woutput, &display->output_list, link) {
-			if (woutput->name && !strcmp(woutput->name, output_name)) {
-				w_output = woutput;
-				break;
-			}
-		}
-	} else {
-		w_output = wl_container_of(display->output_list.prev, w_output, link);
-	}
-
-	/* maybe that output doesn't exit, still allow a fallback */
-	if (!w_output)
-		w_output = wl_container_of(display->output_list.prev, w_output, link);
-
-	fprintf(stderr, "Activating application '%s' on output '%s'\n",
-			app_id_to_activate, w_output->name ?
-			w_output->name : "first default output");
-
-	if (use_grpc_activation) {
-		fprintf(stderr, "using grpc\n");
-		GrpcClient *client = new GrpcClient();
-
-		// this blocks in wait
-		std::thread thread(run_in_thread, client);
-
-		// this does the actually call to get events
-		client->AppStatusState();
-
-		client->ActivateApp(std::string(app_id_to_activate),
-		                    std::string(w_output->name));
-		thread.join();
-	} else {
-		fprintf(stderr, "using agl_shell_desktop\n");
-		agl_shell_desktop_activate_app(display->agl_shell_desktop, 
-				app_id_to_activate, NULL, w_output->output);
-
-		while (running && ret != -1) {
-			ret = wl_display_dispatch(display->display);
+	// app_id, output p[0] -> name, p[1] action, p[2] app_id, p[3] -> output
+	while ((opt = getopt(argc, argv, "a:p:o:lh")) != -1) {
+		switch (opt) {
+		case 'p':
+			app_id = optarg;
+			break;
+		case 'a':
+			action = optarg;
+			break;
+		case 'o':
+			output = optarg;
+			break;
+		case 'l':
+			listen_flag = true;
+			break;
+		case 'h':
+		default: /* '?' */
+			help(argv);
 		}
 	}
 
-	destroy_display(display);
+	if (!action && !listen_flag) {
+		help(argv);
+		exit(EXIT_FAILURE);
+	}
+
+	// start grpc connection
+	GrpcClient *client = new GrpcClient();
+
+	if (listen_flag) {
+		fprintf(stderr, "Listening for events...\n");
+		th = std::thread(run_in_thread, client);
+		client->AppStatusState(app_status_callback);
+	}
+
+	switch (get_action(action)) {
+	case ACTIVATE:
+		if (!output && !app_id) {
+			fprintf(stderr, "Activation require both an app_id and an output\n");
+			help(argv);
+		}
+		fprintf(stderr, "Activating application '%s' on output '%s'\n",
+				app_id, output);
+		client->ActivateApp(std::string(app_id), std::string(output));
+		break;
+	case DEACTIVATE:
+		if (!app_id) {
+			fprintf(stderr, "Deactivation require an app_id\n");
+			help(argv);
+		}
+		fprintf(stderr, "Deactivating application '%s'\n", app_id);
+		client->DeactivateApp(std::string(app_id));
+		break;
+	default:
+		// allow listen flag to be passed
+		if (listen_flag)
+			break;
+
+		fprintf(stderr, "Unknown action passed. Possible actions:\n\t");
+		for (size_t i = 0; ARRAY_LENGTH(actions); i++)
+			fprintf(stderr, " %s ", actions[i].name);
+
+		help(argv);
+		break;
+	}
+
+	if (listen_flag) {
+		th.join();
+	}
+
 	return 0;
 }

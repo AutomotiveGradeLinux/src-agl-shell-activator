@@ -3,7 +3,8 @@ project('agl-shell-activator',
   version: '0.0.2',
   default_options: [
     'warning_level=3',
-    'c_std=gnu99',
+    'c_std=c2x',
+    'cpp_std=c++20'
   ],
   meson_version: '>= 0.60',
   license: 'MIT/Expat',
@@ -63,8 +64,6 @@ srcs_agl_activator = [
     'src/AglShellGrpcClient.h',
     generated_protoc_sources,
     generated_grpc_sources,
-    agl_shell_desktop_client_protocol_h,
-    agl_shell_desktop_protocol_c,
 ]
 
 exe_wth_receiver = executable(

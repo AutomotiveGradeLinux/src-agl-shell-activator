@@ -15,6 +15,8 @@
 
 #include "agl_shell.grpc.pb.h"
 
+typedef void (*Callback)(agl_shell_ipc::AppStateResponse app_response);
+
 class Reader : public grpc::ClientReadReactor<::agl_shell_ipc::AppStateResponse> {
 public:
 	Reader(agl_shell_ipc::AglShellManagerService::Stub *stub)
@@ -22,9 +24,12 @@ public:
 	{
 	}
 
-	void AppStatusState()
+	void AppStatusState(Callback callback)
 	{
 		::agl_shell_ipc::AppStateRequest request;
+
+		// set up the callback
+		m_callback = callback;
 		m_stub->async()->AppStatusState(&m_context, &request, this);
 
 		StartRead(&m_app_state);
@@ -34,10 +39,7 @@ public:
 	void OnReadDone(bool ok) override
 	{
 		if (ok) {
-			std::cout << "AppState got app_id " <<
-				m_app_state.app_id() <<
-				", with state " <<
-				m_app_state.state() << std::endl;
+			m_callback(m_app_state);
 
 			// blocks in StartRead() if the server doesn't send
 			// antyhing
@@ -76,6 +78,9 @@ private:
 	::agl_shell_ipc::AppStateResponse m_app_state;
 	agl_shell_ipc::AglShellManagerService::Stub *m_stub;
 
+	Callback m_callback;
+
+
 	std::mutex m_mutex;
 	std::condition_variable m_cv;
 	grpc::Status m_status;
@@ -86,8 +91,9 @@ class GrpcClient {
 public:
 	GrpcClient();
 	bool ActivateApp(const std::string& app_id, const std::string& output_name);
+	bool DeactivateApp(const std::string& app_id);
 	void GetAppState();
-	void AppStatusState();
+	void AppStatusState(Callback callback);
 	grpc::Status Wait();
 
 private:

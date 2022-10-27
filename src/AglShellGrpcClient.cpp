@@ -45,6 +45,20 @@ GrpcClient::ActivateApp(const std::string& app_id, const std::string& output_nam
 	return status.ok();
 }
 
+bool
+GrpcClient::DeactivateApp(const std::string& app_id)
+{
+	agl_shell_ipc::DeactivateRequest request;
+
+	request.set_app_id(app_id);
+
+	grpc::ClientContext context;
+	::agl_shell_ipc::DeactivateResponse reply;
+
+	grpc::Status status = m_stub->DeactivateApp(&context, request, &reply);
+	return status.ok();
+}
+
 grpc::Status
 GrpcClient::Wait(void)
 {
@@ -52,7 +66,7 @@ GrpcClient::Wait(void)
 }
 
 void
-GrpcClient::AppStatusState(void)
+GrpcClient::AppStatusState(Callback callback)
 {
-	reader->AppStatusState();
+	reader->AppStatusState(callback);
 }
