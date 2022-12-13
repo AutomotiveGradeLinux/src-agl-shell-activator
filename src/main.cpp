@@ -46,6 +46,7 @@ enum action_state {
 	DEACTIVATE,
 	SET_FLOAT,
 	SET_SPLIT,
+	GETOUTPUTS,
 };
 
 static struct action {
@@ -54,6 +55,7 @@ static struct action {
 } actions[] = {
 	{ ACTIVATE, 	 "ACTIVATE" 	},
 	{ DEACTIVATE, 	 "DEACTIVATE" 	},
+	{ GETOUTPUTS, 	 "GETOUTPUTS" 	},
 };
 
 static int
@@ -80,6 +82,10 @@ help(char **argv)
 {
 	fprintf(stderr, "Usage: %s [-a action] [-p app_id] [-o output_name] [-l]\n",
 			argv[0]);
+	fprintf(stderr, "\t-a -- action activate|deactivate|getoutputs\n");
+	fprintf(stderr, "\t-p -- app_id application_id\n");
+	fprintf(stderr, "\t-o -- output_name one of the outputs from getoutputs action\n");
+	fprintf(stderr, "\t-l -- continuously listen for window state events\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -89,6 +95,20 @@ app_status_callback(::agl_shell_ipc::AppStateResponse app_response)
 	std::cout << " >> AppStateResponse app_id " <<
 		app_response.app_id() << ", with state " <<
 		app_response.state() << std::endl;
+}
+
+static void
+read_outputs(GrpcClient *client)
+{
+	std::vector<std::string> outputs = client->GetOutputs();
+
+	if (outputs.empty())
+		return;
+
+	for (size_t i = 0; i < outputs.size(); i++)
+		fprintf(stderr, " %s ", outputs[i].c_str());
+
+	fprintf(stderr, "\n");
 }
 
 int main(int argc, char *argv[])
@@ -101,7 +121,7 @@ int main(int argc, char *argv[])
 	std::thread th;
 
 	// app_id, output p[0] -> name, p[1] action, p[2] app_id, p[3] -> output
-	while ((opt = getopt(argc, argv, "a:p:o:lh")) != -1) {
+	while ((opt = getopt(argc, argv, "a:p:o:lsh")) != -1) {
 		switch (opt) {
 		case 'p':
 			app_id = optarg;
@@ -152,6 +172,9 @@ int main(int argc, char *argv[])
 		}
 		fprintf(stderr, "Deactivating application '%s'\n", app_id);
 		client->DeactivateApp(std::string(app_id));
+		break;
+	case GETOUTPUTS:
+		read_outputs(client);
 		break;
 	default:
 		// allow listen flag to be passed

@@ -9,6 +9,7 @@ service AglShellManagerService {
        rpc SetAppSplit(SplitRequest)				returns (SplitResponse) {}
        rpc SetAppFloat(FloatRequest)				returns (FloatResponse) {}
        rpc AppStatusState(AppStateRequest)			returns (stream AppStateResponse) {}
+       rpc GetOutputs(OutputRequest)				returns (ListOutputResponse) {}
 }
 
 message ActivateRequest {
@@ -48,3 +49,14 @@ message AppStateResponse {
 	int32 state = 1;
 	string app_id = 2;
 }
+
+message OutputRequest {
+};
+
+message OutputResponse {
+	string name = 1;
+};
+
+message ListOutputResponse {
+	repeated OutputResponse outputs = 1;
+};

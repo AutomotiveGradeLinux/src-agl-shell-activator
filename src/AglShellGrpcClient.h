@@ -92,6 +92,7 @@ public:
 	GrpcClient();
 	bool ActivateApp(const std::string& app_id, const std::string& output_name);
 	bool DeactivateApp(const std::string& app_id);
+	std::vector<std::string> GetOutputs();
 	void GetAppState();
 	void AppStatusState(Callback callback);
 	grpc::Status Wait();

@@ -70,3 +70,24 @@ GrpcClient::AppStatusState(Callback callback)
 {
 	reader->AppStatusState(callback);
 }
+
+std::vector<std::string>
+GrpcClient::GetOutputs()
+{
+	grpc::ClientContext context;
+	std::vector<std::string> v;
+
+	::agl_shell_ipc::OutputRequest request;
+	::agl_shell_ipc::ListOutputResponse response;
+
+	grpc::Status status = m_stub->GetOutputs(&context, request, &response);
+	if (!status.ok())
+		return std::vector<std::string>();
+
+	for (int i = 0; i < response.outputs_size(); i++) {
+		::agl_shell_ipc::OutputResponse rresponse = response.outputs(i);
+		v.push_back(rresponse.name());
+	}
+
+	return v;
+}
