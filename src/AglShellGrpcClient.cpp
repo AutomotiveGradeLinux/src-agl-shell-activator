@@ -59,6 +59,24 @@ GrpcClient::DeactivateApp(const std::string& app_id)
 	return status.ok();
 }
 
+bool
+GrpcClient::SetAppFloat(const std::string& app_id, int32_t x_pos, int32_t y_pos)
+{
+	agl_shell_ipc::FloatRequest request;
+
+	request.set_app_id(app_id);
+
+	request.set_x_pos(x_pos);
+	request.set_y_pos(y_pos);
+
+	grpc::ClientContext context;
+	::agl_shell_ipc::FloatResponse reply;
+
+	grpc::Status status = m_stub->SetAppFloat(&context, request, &reply);
+	return status.ok();
+}
+
+
 grpc::Status
 GrpcClient::Wait(void)
 {

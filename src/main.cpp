@@ -56,6 +56,7 @@ static struct action {
 	{ ACTIVATE, 	 "ACTIVATE" 	},
 	{ DEACTIVATE, 	 "DEACTIVATE" 	},
 	{ GETOUTPUTS, 	 "GETOUTPUTS" 	},
+	{ SET_FLOAT, 	 "FLOAT" 	},
 };
 
 static int
@@ -82,7 +83,7 @@ help(char **argv)
 {
 	fprintf(stderr, "Usage: %s [-a action] [-p app_id] [-o output_name] [-l]\n",
 			argv[0]);
-	fprintf(stderr, "\t-a -- action activate|deactivate|getoutputs\n");
+	fprintf(stderr, "\t-a -- action activate|deactivate|float|max|getoutputs\n");
 	fprintf(stderr, "\t-p -- app_id application_id\n");
 	fprintf(stderr, "\t-o -- output_name one of the outputs from getoutputs action\n");
 	fprintf(stderr, "\t-l -- continuously listen for window state events\n");
@@ -172,6 +173,14 @@ int main(int argc, char *argv[])
 		}
 		fprintf(stderr, "Deactivating application '%s'\n", app_id);
 		client->DeactivateApp(std::string(app_id));
+		break;
+	case SET_FLOAT:
+		if (!app_id) {
+			fprintf(stderr, "Float require an app_id\n");
+			help(argv);
+		}
+		fprintf(stderr, "Floating application '%s'\n", app_id);
+		client->SetAppFloat(std::string(app_id), 40, 300);
 		break;
 	case GETOUTPUTS:
 		read_outputs(client);
