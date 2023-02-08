@@ -182,7 +182,7 @@ int main(int argc, char *argv[])
 			break;
 
 		fprintf(stderr, "Unknown action passed. Possible actions:\n\t");
-		for (size_t i = 0; ARRAY_LENGTH(actions); i++)
+		for (size_t i = 0; i < ARRAY_LENGTH(actions); i++)
 			fprintf(stderr, " %s ", actions[i].name);
 
 		help(argv);
