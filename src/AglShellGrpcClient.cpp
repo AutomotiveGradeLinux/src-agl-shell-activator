@@ -76,6 +76,19 @@ GrpcClient::SetAppFloat(const std::string& app_id, int32_t x_pos, int32_t y_pos)
 	return status.ok();
 }
 
+bool
+GrpcClient::SetAppNormal(const std::string& app_id)
+{
+	agl_shell_ipc::NormalRequest request;
+
+	request.set_app_id(app_id);
+
+	grpc::ClientContext context;
+	::agl_shell_ipc::NormalResponse reply;
+
+	grpc::Status status = m_stub->SetAppNormal(&context, request, &reply);
+	return status.ok();
+}
 
 grpc::Status
 GrpcClient::Wait(void)

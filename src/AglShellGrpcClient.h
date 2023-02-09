@@ -93,6 +93,7 @@ public:
 	bool ActivateApp(const std::string& app_id, const std::string& output_name);
 	bool DeactivateApp(const std::string& app_id);
 	bool SetAppFloat(const std::string& app_id, int32_t x_pos, int32_t y_pos);
+	bool SetAppNormal(const std::string& app_id);
 	std::vector<std::string> GetOutputs();
 	void GetAppState();
 	void AppStatusState(Callback callback);

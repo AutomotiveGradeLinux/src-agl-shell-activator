@@ -10,6 +10,7 @@ service AglShellManagerService {
        rpc SetAppFloat(FloatRequest)				returns (FloatResponse) {}
        rpc AppStatusState(AppStateRequest)			returns (stream AppStateResponse) {}
        rpc GetOutputs(OutputRequest)				returns (ListOutputResponse) {}
+       rpc SetAppNormal(NormalRequest)				returns (NormalResponse) {}
 }
 
 message ActivateRequest {
@@ -61,4 +62,11 @@ message OutputResponse {
 
 message ListOutputResponse {
 	repeated OutputResponse outputs = 1;
+};
+
+message NormalRequest {
+	string app_id = 1;
+};
+
+message NormalResponse {
 };
