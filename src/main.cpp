@@ -48,17 +48,19 @@ enum action_state {
 	SET_SPLIT,
 	SET_NORMAL,
 	GETOUTPUTS,
+	SET_FULLSCREEN,
 };
 
 static struct action {
 	enum action_state action;
 	const char *name;
 } actions[] = {
-	{ ACTIVATE, 	 "ACTIVATE" 	},
-	{ DEACTIVATE, 	 "DEACTIVATE" 	},
-	{ GETOUTPUTS, 	 "GETOUTPUTS" 	},
-	{ SET_FLOAT, 	 "FLOAT" 	},
-	{ SET_NORMAL, 	 "NORMAL" 	},
+	{ ACTIVATE,		"ACTIVATE" 	},
+	{ DEACTIVATE,		"DEACTIVATE" 	},
+	{ GETOUTPUTS,		"GETOUTPUTS" 	},
+	{ SET_FLOAT,		"FLOAT" 	},
+	{ SET_NORMAL,		"NORMAL" 	},
+	{ SET_FULLSCREEN,	"FULLSCREEN" 	},
 };
 
 static int
@@ -85,7 +87,7 @@ help(char **argv)
 {
 	fprintf(stderr, "Usage: %s [-a action] [-p app_id] [-o output_name] [-l]\n",
 			argv[0]);
-	fprintf(stderr, "\t-a -- action activate|deactivate|float|normal|getoutputs\n");
+	fprintf(stderr, "\t-a -- action activate|deactivate|float|normal|getoutputs|fullscreen\n");
 	fprintf(stderr, "\t-p -- app_id application_id\n");
 	fprintf(stderr, "\t-o -- output_name one of the outputs from getoutputs action\n");
 	fprintf(stderr, "\t-l -- continuously listen for window state events\n");
@@ -183,6 +185,14 @@ int main(int argc, char *argv[])
 		}
 		fprintf(stderr, "Floating application '%s'\n", app_id);
 		client->SetAppFloat(std::string(app_id), 40, 300);
+		break;
+	case SET_FULLSCREEN:
+		if (!app_id) {
+			fprintf(stderr, "Fullscreen require an app_id\n");
+			help(argv);
+		}
+		fprintf(stderr, "Fullscreened application '%s'\n", app_id);
+		client->SetAppFullscreen(std::string(app_id));
 		break;
 	case SET_NORMAL:
 		if (!app_id) {

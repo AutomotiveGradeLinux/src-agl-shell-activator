@@ -8,6 +8,7 @@ service AglShellManagerService {
        rpc DeactivateApp(DeactivateRequest)			returns (DeactivateResponse) {}
        rpc SetAppSplit(SplitRequest)				returns (SplitResponse) {}
        rpc SetAppFloat(FloatRequest)				returns (FloatResponse) {}
+       rpc SetAppFullscreen(FullscreenRequest)			returns (FullscreenResponse) {}
        rpc AppStatusState(AppStateRequest)			returns (stream AppStateResponse) {}
        rpc GetOutputs(OutputRequest)				returns (ListOutputResponse) {}
        rpc SetAppNormal(NormalRequest)				returns (NormalResponse) {}
@@ -69,4 +70,11 @@ message NormalRequest {
 };
 
 message NormalResponse {
+};
+
+message FullscreenRequest {
+	string app_id = 1;
+};
+
+message FullscreenResponse {
 };
