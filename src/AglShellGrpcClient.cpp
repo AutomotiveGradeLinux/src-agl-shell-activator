@@ -119,6 +119,39 @@ GrpcClient::SetAppOnOutput(const std::string& app_id, const std::string &output)
 	return status.ok();
 }
 
+bool
+GrpcClient::SetAppPosition(const std::string& app_id, int32_t x, int32_t y)
+{
+	agl_shell_ipc::AppPositionRequest request;
+
+	request.set_app_id(app_id);
+	request.set_x(x);
+	request.set_y(y);
+
+	grpc::ClientContext context;
+	::agl_shell_ipc::AppPositionResponse reply;
+
+	grpc::Status status = m_stub->SetAppPosition(&context, request, &reply);
+	return status.ok();
+}
+
+bool
+GrpcClient::SetAppScale(const std::string& app_id, int32_t width, int32_t height)
+{
+	agl_shell_ipc::AppScaleRequest request;
+
+	request.set_app_id(app_id);
+	request.set_width(width);
+	request.set_height(height);
+
+	grpc::ClientContext context;
+	::agl_shell_ipc::AppScaleResponse reply;
+
+	grpc::Status status = m_stub->SetAppScale(&context, request, &reply);
+	return status.ok();
+}
+
+
 grpc::Status
 GrpcClient::Wait(void)
 {

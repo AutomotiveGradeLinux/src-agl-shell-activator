@@ -50,6 +50,8 @@ enum action_state {
 	GETOUTPUTS,
 	SET_FULLSCREEN,
 	SET_APP_ON_OUTPUT,
+	SET_APP_POS,
+	SET_APP_SCALE,
 };
 
 static struct action {
@@ -63,6 +65,8 @@ static struct action {
 	{ SET_NORMAL,		"NORMAL" 	},
 	{ SET_FULLSCREEN,	"FULLSCREEN" 	},
 	{ SET_APP_ON_OUTPUT,	"ON_OUTPUT" 	},
+	{ SET_APP_POS,		"POSITION" 	},
+	{ SET_APP_SCALE,	"SCALE" 	},
 };
 
 static int
@@ -89,7 +93,7 @@ help(char **argv)
 {
 	fprintf(stderr, "Usage: %s [-a action] [-p app_id] [-o output_name] [-l]\n",
 			argv[0]);
-	fprintf(stderr, "\t-a -- action activate|deactivate|float|normal|getoutputs|fullscreen|on_output\n");
+	fprintf(stderr, "\t-a -- action activate|deactivate|float|normal|getoutputs|fullscreen|on_output|position|scale\n");
 	fprintf(stderr, "\t-p -- app_id application_id\n");
 	fprintf(stderr, "\t-o -- output_name one of the outputs from getoutputs action\n");
 	fprintf(stderr, "\t-l -- continuously listen for window state events\n");
@@ -218,6 +222,22 @@ int main(int argc, char *argv[])
 		break;
 	case GETOUTPUTS:
 		read_outputs(client);
+		break;
+	case SET_APP_POS:
+		if (!app_id) {
+			fprintf(stderr, "Positioning require an app_id\n");
+			help(argv);
+		}
+		fprintf(stderr, "Set app position for  application '%s'\n", app_id);
+		client->SetAppPosition(std::string(app_id), 550, 550);
+		break;
+	case SET_APP_SCALE:
+		if (!app_id) {
+			fprintf(stderr, "Scale require an app_id\n");
+			help(argv);
+		}
+		fprintf(stderr, "Set scale for  application '%s'\n", app_id);
+		client->SetAppScale(std::string(app_id), 200, 200);
 		break;
 	default:
 		// allow listen flag to be passed
