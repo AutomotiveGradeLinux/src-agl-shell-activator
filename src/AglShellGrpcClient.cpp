@@ -152,6 +152,25 @@ GrpcClient::SetAppScale(const std::string& app_id, int32_t width, int32_t height
 }
 
 
+bool
+GrpcClient::SetAppSplit(const std::string& app_id, uint32_t orientation,
+			int32_t width, int32_t sticky, const std::string& output_name)
+{
+	agl_shell_ipc::SplitRequest request;
+
+	request.set_app_id(app_id);
+	request.set_output_name(output_name);
+	request.set_tile_orientation(orientation);
+	request.set_width(width);
+	request.set_sticky(sticky);
+
+	grpc::ClientContext context;
+	::agl_shell_ipc::SplitResponse reply;
+
+	grpc::Status status = m_stub->SetAppSplit(&context, request, &reply);
+	return status.ok();
+}
+
 grpc::Status
 GrpcClient::Wait(void)
 {

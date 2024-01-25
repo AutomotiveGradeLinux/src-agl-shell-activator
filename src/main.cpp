@@ -52,6 +52,7 @@ enum action_state {
 	SET_APP_ON_OUTPUT,
 	SET_APP_POS,
 	SET_APP_SCALE,
+	SET_APP_SPLIT,
 };
 
 static struct action {
@@ -67,6 +68,7 @@ static struct action {
 	{ SET_APP_ON_OUTPUT,	"ON_OUTPUT" 	},
 	{ SET_APP_POS,		"POSITION" 	},
 	{ SET_APP_SCALE,	"SCALE" 	},
+	{ SET_APP_SPLIT,	"SPLIT" 	},
 };
 
 static int
@@ -91,12 +93,15 @@ run_in_thread(GrpcClient *client)
 static void
 help(char **argv)
 {
-	fprintf(stderr, "Usage: %s [-a action] [-p app_id] [-o output_name] [-l]\n",
+	fprintf(stderr, "Usage: %s [-a action] [-p app_id] [-o output_name] [-l] [-r] [-s]\n",
 			argv[0]);
-	fprintf(stderr, "\t-a -- action activate|deactivate|float|normal|getoutputs|fullscreen|on_output|position|scale\n");
+	fprintf(stderr, "\t-a -- action activate|deactivate|float|normal|getoutputs|fullscreen|on_output|position|scale|split\n");
 	fprintf(stderr, "\t-p -- app_id application_id\n");
 	fprintf(stderr, "\t-o -- output_name one of the outputs from getoutputs action\n");
 	fprintf(stderr, "\t-l -- continuously listen for window state events\n");
+	fprintf(stderr, "\t-r -- orientation for split\n");
+	fprintf(stderr, "\t-w -- width of the window (if not specified defaults t0) for split\n");
+	fprintf(stderr, "\t-s -- sticky window for split\n");
 	exit(EXIT_FAILURE);
 }
 
@@ -122,17 +127,36 @@ read_outputs(GrpcClient *client)
 	fprintf(stderr, "\n");
 }
 
+static uint32_t orientation_trans(char *orientation)
+{
+	if (strcmp(orientation, "left") == 0)
+		return 1;
+	else if (strcmp(orientation, "right") == 0)
+		return 2;
+	else if (strcmp(orientation, "top") == 0)
+		return 3;
+	else if (strcmp(orientation, "bottom") == 0)
+		return 4;
+
+	return 0;
+}
+
 int main(int argc, char *argv[])
 {
 	char *output = NULL;
 	char *action = NULL;
 	char *app_id = NULL;
+	char *orientation = NULL;
+	// none, by default
+	uint32_t orientation_translate = 0;
 	int opt;
 	bool listen_flag = false;
+	int width = 0;
+	int32_t sticky = 0;
 	std::thread th;
 
 	// app_id, output p[0] -> name, p[1] action, p[2] app_id, p[3] -> output
-	while ((opt = getopt(argc, argv, "a:p:o:lsh")) != -1) {
+	while ((opt = getopt(argc, argv, "a:p:o:r:lshw:")) != -1) {
 		switch (opt) {
 		case 'p':
 			app_id = optarg;
@@ -143,8 +167,17 @@ int main(int argc, char *argv[])
 		case 'o':
 			output = optarg;
 			break;
+		case 'r':
+			orientation = optarg;
+			break;
 		case 'l':
 			listen_flag = true;
+			break;
+		case 's':
+			sticky = 1;
+			break;
+		case 'w':
+			width = strtoul(optarg, NULL, 10);
 			break;
 		case 'h':
 		default: /* '?' */
@@ -238,6 +271,30 @@ int main(int argc, char *argv[])
 		}
 		fprintf(stderr, "Set scale for  application '%s'\n", app_id);
 		client->SetAppScale(std::string(app_id), 200, 200);
+		break;
+	case SET_APP_SPLIT:
+		if (!orientation) {
+			fprintf(stderr, "split require orientation\n");
+			help(argv);
+		}
+
+		orientation_translate = orientation_trans(orientation);
+
+		if (!app_id) {
+			fprintf(stderr, "Split require an app_id\n");
+			help(argv);
+		}
+
+		if (!output) {
+			fprintf(stderr, "split require an output\n");
+			help(argv);
+		}
+
+
+		fprintf(stderr, "Set split orientation '%s' for application '%s' on output '%s'\n", 
+				orientation, app_id, output);
+		client->SetAppSplit(std::string(app_id),
+				orientation_translate, width, sticky, std::string(output));
 		break;
 	default:
 		// allow listen flag to be passed
