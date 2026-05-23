@@ -1,0 +1,139 @@
+# Doxyfile — Doxygen configuration for agl-shell-activator
+# SPDX-License-Identifier: MIT
+# Copyright 2021 Collabora, Ltd.
+#
+# Generate HTML (and optionally other formats) from the Doxygen comments
+# embedded in the project source files.
+#
+# Usage:
+#   doxygen Doxyfile
+#
+# Output is written to docs/html/ by default.
+
+#---------------------------------------------------------------------------
+# Project metadata
+#---------------------------------------------------------------------------
+
+PROJECT_NAME           = "agl-shell-activator"
+PROJECT_NUMBER         = 0.0.1
+PROJECT_BRIEF          = "AGL Wayland client utility to activate/bring-to-foreground applications"
+PROJECT_LOGO           =
+
+#---------------------------------------------------------------------------
+# Input
+#---------------------------------------------------------------------------
+
+# Root of the source tree to scan.
+INPUT                  = src \
+                         include \
+                         script \
+                         README.md
+
+# Recursively scan all subdirectories under INPUT.
+RECURSIVE              = YES
+
+# File patterns to process.
+FILE_PATTERNS          = *.c \
+                         *.h \
+                         *.md \
+                         agl-activator
+
+# Treat *.md files as Markdown documentation pages.
+EXTENSION_MAPPING      = md=md
+
+# Use README.md as the main landing page.
+USE_MDFILE_AS_MAINPAGE = README.md
+
+# Patterns to exclude (generated files live in the build directory,
+# not in the source tree, so nothing to exclude here).
+EXCLUDE_PATTERNS       =
+
+#---------------------------------------------------------------------------
+# Output
+#---------------------------------------------------------------------------
+
+OUTPUT_DIRECTORY       = docs
+GENERATE_HTML          = YES
+HTML_OUTPUT            = html
+GENERATE_LATEX         = NO
+GENERATE_MAN           = NO
+GENERATE_RTF           = NO
+GENERATE_XML           = NO
+
+#---------------------------------------------------------------------------
+# Extraction settings
+#---------------------------------------------------------------------------
+
+# Extract documentation for all entities, even those without Doxygen comments.
+EXTRACT_ALL            = YES
+
+# Include static functions and variables in the output.
+EXTRACT_STATIC         = YES
+
+# Include private members of structs/classes.
+EXTRACT_PRIVATE        = YES
+
+# Include local variables in function bodies (verbose but complete).
+EXTRACT_LOCAL_VARS     = YES
+
+#---------------------------------------------------------------------------
+# Preprocessing
+#---------------------------------------------------------------------------
+
+# Run the C preprocessor over the sources before parsing so that
+# conditional compilation blocks are correctly handled.
+ENABLE_PREPROCESSING   = YES
+MACRO_EXPANSION        = YES
+EXPAND_ONLY_PREDEF     = NO
+
+# Pre-define macros that control conditional compilation.
+# These mirror the flags that meson.build sets at build time.
+PREDEFINED             = _GNU_SOURCE \
+                         _ALL_SOURCE \
+                         HAVE_MEMFD_CREATE=1 \
+                         HAVE_STRCHRNUL=1 \
+                         HAVE_EXECINFO_H \
+                         HAVE_MKOSTEMP \
+                         HAVE_POSIX_FALLOCATE \
+                         SOCK_CLOEXEC=02000000 \
+                         EPOLL_CLOEXEC=02000000
+
+#---------------------------------------------------------------------------
+# Source browsing
+#---------------------------------------------------------------------------
+
+# Cross-reference all identifiers so HTML output links definitions to uses.
+SOURCE_BROWSER         = YES
+INLINE_SOURCES         = NO
+REFERENCED_BY_RELATION = YES
+REFERENCES_RELATION    = YES
+
+# Strip the absolute path prefix from file names shown in the output.
+STRIP_FROM_PATH        = .
+
+#---------------------------------------------------------------------------
+# Diagrams (requires Graphviz dot)
+#---------------------------------------------------------------------------
+
+HAVE_DOT               = YES
+CALL_GRAPH             = YES
+CALLER_GRAPH           = YES
+DOT_GRAPH_MAX_NODES    = 50
+
+#---------------------------------------------------------------------------
+# Warnings
+#---------------------------------------------------------------------------
+
+QUIET                  = NO
+WARNINGS               = YES
+WARN_IF_UNDOCUMENTED   = YES
+WARN_IF_DOC_ERROR      = YES
+WARN_NO_PARAMDOC       = YES
+
+#---------------------------------------------------------------------------
+# HTML styling
+#---------------------------------------------------------------------------
+
+GENERATE_TREEVIEW      = YES
+DISABLE_INDEX          = NO
+HTML_DYNAMIC_SECTIONS  = YES

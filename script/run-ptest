@@ -1,0 +1,95 @@
+#!/bin/sh
+# SPDX-License-Identifier: MIT
+# Copyright 2021 Collabora, Ltd.
+#
+# run-ptest — ptest entry point for agl-shell-activator.
+#
+# This script is executed by the Yocto ptest-runner on the target device.
+# It must emit results to stdout in the format:
+#
+#   PASS: <testname>
+#   FAIL: <testname>
+#   SKIP: <testname>
+#
+# one line per test binary.  CK_AUTOMAKE=1 causes libcheck to emit this
+# format natively, so no post-processing of the binary output is required.
+#
+# The script also runs two black-box smoke tests of the installed binary
+# that require no Wayland compositor.  An optional on-target integration
+# test is included but is silently skipped when the AGL compositor socket
+# is not present.
+
+# Resolve the directory this script lives in (handles symlinks).
+PTEST_DIR="$(dirname "$(readlink -f "$0")")"
+cd "$PTEST_DIR" || exit 1
+
+# Path to the installed agl-shell-activator binary.
+# Prefer the sibling binary in the same prefix; fall back to PATH.
+ACTIVATOR="${PTEST_DIR}/../../bin/agl-shell-activator"
+if [ ! -x "$ACTIVATOR" ]; then
+    ACTIVATOR="agl-shell-activator"
+fi
+
+# ---------------------------------------------------------------------------
+# Helper: run a test binary with CK_AUTOMAKE=1.
+# libcheck emits one "PASS: <name>" or "FAIL: <name>" line per test case.
+# If the binary is missing or non-executable, emit a single FAIL line.
+# ---------------------------------------------------------------------------
+run_check_binary() {
+    local bin="$1"
+    if [ ! -x "$bin" ]; then
+        echo "FAIL: $bin (not found or not executable)"
+        return
+    fi
+    CK_AUTOMAKE=1 AGL_ACTIVATOR_BIN="$ACTIVATOR" "$bin"
+}
+
+# ---------------------------------------------------------------------------
+# 1. libcheck unit test suites
+# ---------------------------------------------------------------------------
+run_check_binary ./test-os-compat
+run_check_binary ./test-args
+
+# ---------------------------------------------------------------------------
+# 2. Black-box smoke tests of the installed binary (no compositor required).
+#    These exercise only the argument-validation code paths that exit before
+#    any Wayland connection is attempted.
+# ---------------------------------------------------------------------------
+
+# Test: binary must reject invocation with no arguments (exit non-zero).
+"$ACTIVATOR" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "PASS: smoke-no-args-exits-failure"
+else
+    echo "FAIL: smoke-no-args-exits-failure"
+fi
+
+# Test: binary must reject an empty app-id string (exit non-zero).
+"$ACTIVATOR" "" >/dev/null 2>&1
+if [ $? -ne 0 ]; then
+    echo "PASS: smoke-empty-appid-exits-failure"
+else
+    echo "FAIL: smoke-empty-appid-exits-failure"
+fi
+
+# ---------------------------------------------------------------------------
+# 3. On-target integration test (requires a running agl-compositor).
+#    Skipped gracefully when the Wayland socket is not present.
+# ---------------------------------------------------------------------------
+
+AGL_SOCKET_DIR="/run/platform/display"
+WAYLAND_SOCKET="${AGL_SOCKET_DIR}/wayland-0"
+
+if [ -S "$WAYLAND_SOCKET" ]; then
+    # A compositor is available; attempt to activate the homescreen app.
+    # This is a best-effort smoke test: if homescreen is not running the
+    # compositor may still return success for the protocol message itself.
+    XDG_RUNTIME_DIR="$AGL_SOCKET_DIR" "$ACTIVATOR" homescreen >/dev/null 2>&1
+    if [ $? -eq 0 ]; then
+        echo "PASS: integration-activate-homescreen"
+    else
+        echo "FAIL: integration-activate-homescreen"
+    fi
+else
+    echo "SKIP: integration-activate-homescreen (no compositor socket at $WAYLAND_SOCKET)"
+fi

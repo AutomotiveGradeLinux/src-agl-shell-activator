@@ -1,0 +1,14 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2021 Collabora, Ltd.
+#
+# Meson user-settable options for agl-shell-activator.
+#
+# Usage:
+#   meson setup build -Denable-tests=enabled
+#   ninja -C build test
+
+option('enable-tests',
+  type        : 'feature',
+  value       : 'disabled',
+  description : 'Build and install the libcheck unit test suite (requires libcheck >= 0.9.4)',
+)

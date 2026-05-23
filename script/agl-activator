@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: MIT
 #
 # Copyright 2021 Collabora, Ltd.
 #
@@ -24,4 +25,30 @@
 # SOFTWARE.
 #
 
+# @file agl-activator
+# @brief Convenience wrapper that activates an AGL application on the
+#        platform Wayland display socket.
+#
+# On Automotive Grade Linux (AGL) devices the Wayland compositor socket
+# lives at /run/platform/display rather than the default location that
+# libwayland-client would derive from $XDG_RUNTIME_DIR.  This script
+# sets XDG_RUNTIME_DIR to the correct path before invoking the
+# agl-shell-activator binary, so that callers do not need to set the
+# environment variable themselves.
+#
+# @par Usage
+# @code
+#   agl-activator <app-id>
+# @endcode
+#
+# @param $1  The application identifier (app-id) of the target application.
+#            Must match the app-id string that the application registered
+#            with agl-compositor.
+#
+# @note The target application must already be running; this script does
+#       not launch applications.
+#
+# @see agl-shell-activator(1)
+
+# Set the AGL platform Wayland socket directory and invoke the binary.
 XDG_RUNTIME_DIR=/run/platform/display /usr/bin/agl-shell-activator $1

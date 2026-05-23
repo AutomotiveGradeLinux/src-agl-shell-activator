@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: MIT
+# Copyright 2021 Collabora, Ltd.
+#
+# yocto.template — Yocto/OpenEmbedded recipe snippet for agl-shell-activator.
+#
+# This file is a template showing how to integrate agl-shell-activator into
+# a Yocto/OE build with ptest support.  Copy the relevant sections into the
+# actual .bb recipe.
+#
+# Assumptions:
+#   - The recipe already inherits 'meson' and 'pkgconfig'.
+#   - 'libcheck' is available from openembedded-core (poky) — no extra layer
+#     is required.
+#   - PTEST_ENABLED is set to '1' when 'ptest' is in DISTRO_FEATURES.
+#
+# ptest output format (emitted by run-ptest to stdout):
+#   PASS: <testname>
+#   FAIL: <testname>
+#   SKIP: <testname>
+
+# ---------------------------------------------------------------------------
+# Source
+# ---------------------------------------------------------------------------
+
+# run-ptest lives in the source tree under script/; no separate SRC_URI
+# entry is needed.  If the recipe fetches from a tarball rather than a
+# git repo, add:
+#
+#   SRC_URI += "file://script/run-ptest"
+
+# ---------------------------------------------------------------------------
+# Inherited classes
+# ---------------------------------------------------------------------------
+
+inherit meson pkgconfig ptest
+
+# ---------------------------------------------------------------------------
+# Build-time dependencies
+# ---------------------------------------------------------------------------
+
+# Add libcheck to DEPENDS only when ptest is enabled, to avoid pulling it
+# into every build of the production image.
+DEPENDS += "${@bb.utils.contains('PTEST_ENABLED', '1', 'libcheck', '', d)}"
+
+# ---------------------------------------------------------------------------
+# Meson options
+# ---------------------------------------------------------------------------
+
+# Pass -Denable-tests=enabled to meson when building ptests; disabled
+# otherwise so the production binary has no test-framework dependency.
+EXTRA_OEMESON += "${@bb.utils.contains('PTEST_ENABLED', '1', \
+    '-Denable-tests=enabled', '-Denable-tests=disabled', d)}"
+
+# ---------------------------------------------------------------------------
+# Runtime dependencies for the ptest package
+# ---------------------------------------------------------------------------
+
+RDEPENDS:${PN}-ptest += "libcheck"
+
+# ---------------------------------------------------------------------------
+# ptest installation
+# ---------------------------------------------------------------------------
+
+do_install_ptest() {
+    install -d ${D}${PTEST_PATH}
+    install -m 0755 ${B}/test-os-compat   ${D}${PTEST_PATH}/
+    install -m 0755 ${B}/test-args        ${D}${PTEST_PATH}/
+    install -m 0755 ${S}/script/run-ptest ${D}${PTEST_PATH}/
+}
